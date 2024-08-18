@@ -2,13 +2,15 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, recall_score, precision_score, f1_score, roc_curve, auc
 import matplotlib.pyplot as plt
 import optuna
+import math
 
 
 class TimeSeriesDataset(Dataset):
@@ -25,6 +27,10 @@ class TimeSeriesDataset(Dataset):
 
         self.input_size = num_columns
 
+        # Fit StandardScaler on data
+        self.scaler = StandardScaler()
+        self.data.iloc[:, :] = self.scaler.fit_transform(self.data)
+
     def __len__(self):
         return len(self.data) - self.sequence_length
 
@@ -38,12 +44,27 @@ class TimeSeriesDataset(Dataset):
         return torch.tensor(sequence), target
 
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, embed_dim, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.encoding = torch.zeros(max_len, embed_dim)
+        positions = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * -(math.log(10000.0) / embed_dim))
+        self.encoding[:, 0::2] = torch.sin(positions * div_term)
+        self.encoding[:, 1::2] = torch.cos(positions * div_term)
+        self.encoding = self.encoding.unsqueeze(0)  # Shape (1, max_len, embed_dim)
+
+    def forward(self, x):
+        return x + self.encoding[:, :x.size(1)].detach()
+
+
 class TimeSeriesTransformer(nn.Module):
     def __init__(self, input_size, embed_dim, num_heads, num_layers, dim_feedforward, dropout):
         super(TimeSeriesTransformer, self).__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
 
         self.embedding = nn.Linear(input_size, embed_dim)
+        self.positional_encoding = PositionalEncoding(embed_dim)
         self.transformer = nn.Transformer(
             d_model=embed_dim,
             nhead=num_heads,
@@ -56,6 +77,7 @@ class TimeSeriesTransformer(nn.Module):
 
     def forward(self, x):
         x = self.embedding(x)
+        x = self.positional_encoding(x)
         x = x.permute(1, 0, 2)  # Transformer expects (seq_len, batch, embed_dim)
         output = self.transformer(x, x)
         output = output[-1, :, :]  # Take the output of the last time step
