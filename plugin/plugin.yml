@@ -1,0 +1,9 @@
+name: ORCA
+version: 1.0
+main: com.spectrum.ORCA
+api-version: 1.16
+description: Aadvanced minecraft anticheat solution based on deeplearning.
+author: Spectrum_Tim
+commands:
+  orca:
+    description: Start/Stop collecting data.Example:/orca collectdata start spectrum
