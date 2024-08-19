@@ -1,4 +1,4 @@
-package com.spectrum.orca;
+package org.spectrum.orca;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -7,7 +7,9 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -18,7 +20,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-public class OrcaPlugin extends JavaPlugin implements CommandExecutor, Listener {
+public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
 
     private Map<String, DataCollector> collectors = new HashMap<>();
 
@@ -83,6 +85,15 @@ public class OrcaPlugin extends JavaPlugin implements CommandExecutor, Listener 
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        DataCollector collector = collectors.get(player.getName());
+        if (collector != null) {
+            collector.updateClickState(event);
+        }
+    }
+
+    @EventHandler
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
         DataCollector collector = collectors.get(player.getName());
         if (collector != null) {
@@ -165,17 +176,19 @@ public class OrcaPlugin extends JavaPlugin implements CommandExecutor, Listener 
         }
 
         public void updateClickState(PlayerInteractEvent event) {
-            if (event.getAction().isLeftClick()) {
-                if (event.getClickedBlock() != null) {
-                    clickState = 1; // 左键点击方块
-                } else if (event.getClickedEntity() != null) {
-                    clickState = 2; // 左键点击实体
-                } else {
-                    clickState = 1; // 左键点击空白
-                }
+            Action action = event.getAction();
+
+            if (action == Action.LEFT_CLICK_BLOCK) {
+                clickState = 3; // Left click on block
+            } else if (action == Action.LEFT_CLICK_AIR) {
+                clickState = 1; // Left click in the air
             } else {
-                clickState = 0; // 没有点击
+                clickState = 0; // Other actions or no click
             }
+        }
+
+        public void updateClickState(PlayerInteractEntityEvent event) {
+            clickState = 2; // Left click on entity
         }
 
         private Player findNearestPlayer(Player player) {
