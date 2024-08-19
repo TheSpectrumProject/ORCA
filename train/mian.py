@@ -11,7 +11,7 @@ from sklearn.metrics import classification_report, accuracy_score, recall_score,
 import matplotlib.pyplot as plt
 import optuna
 import math
-
+#0为datasetA;1为datasetB
 
 class TimeSeriesDataset(Dataset):
     def __init__(self, csv_file, sequence_length, label):
@@ -243,7 +243,7 @@ def main():
     val_loader = torch.utils.data.DataLoader(torch.utils.data.ConcatDataset(val_datasets), batch_size=32, shuffle=False)
 
     study = optuna.create_study(direction='minimize')
-    study.optimize(lambda trial: objective(trial, train_loader, val_loader, device), n_trials=20)
+    study.optimize(lambda trial: objective(trial, train_loader, val_loader, device), n_trials=10)
 
     best_params = study.best_params
     print(f'Best Parameters: {best_params}')
