@@ -1,12 +1,11 @@
 import torch
-import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import Dataset, DataLoader
 import math
 import torch.nn as nn
+from flask import Flask, request, jsonify
 
-# Define the Transformer model and other components
 class TimeSeriesTransformer(nn.Module):
     def __init__(self, input_size, embed_dim, num_heads, num_layers, dim_feedforward, dropout):
         super(TimeSeriesTransformer, self).__init__()
@@ -23,7 +22,7 @@ class TimeSeriesTransformer(nn.Module):
             dropout=dropout
         )
         self.fc = nn.Linear(embed_dim, 2)
-        self.softmax = nn.Softmax(dim=1)  # Softmax to get probabilities
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.embedding(x)
@@ -51,7 +50,7 @@ class PositionalEncoding(nn.Module):
 class TimeSeriesDataset(Dataset):
     def __init__(self, data):
         self.scaler = StandardScaler()
-        self.data = self.scaler.fit_transform(data)
+        self.data = self.scaler.fit_transform(data.reshape(-1, data.shape[-1])).reshape(data.shape)
         self.data = torch.tensor(self.data, dtype=torch.float32)
 
     def __len__(self):
@@ -70,9 +69,14 @@ def load_model(model_path, input_size, embed_dim, num_heads, num_layers, dim_fee
     model.eval()
     return model
 
-def preprocess_data(file_path):
-    data = pd.read_csv(file_path).values.astype(np.float32)
-    dataset = TimeSeriesDataset(data)
+def preprocess_data(data):
+    data_array = np.array(data, dtype=np.float32)
+    if len(data_array.shape) == 2:
+        data_array = data_array[None, :, :]  # Add batch dimension if missing
+    elif len(data_array.shape) != 3 or data_array.shape[2] != 8:
+        raise ValueError("Data shape must be (batch_size, seq_len, 8)")
+
+    dataset = TimeSeriesDataset(data_array)
     return DataLoader(dataset, batch_size=1, shuffle=False)
 
 def predict(model, data_loader, device):
@@ -86,38 +90,52 @@ def predict(model, data_loader, device):
     return np.concatenate(probabilities, axis=0)
 
 def prediction2result(probabilities):
-    # Extract probability of 'Cheating' (class 0)
     cheating_prob = probabilities[0, 0]  # Assumes single sample; adjust if batch_size > 1
     return cheating_prob
 
-def main():
-    # Hardcoded paths and parameters
-    model_path = 'path/to/model.pth'
-    data_path = 'path/to/data.csv'
-    input_size = 8
-    embed_dim = 32
-    num_heads = 2
-    num_layers = 3
-    dim_feedforward = 64
-    dropout = 0.1561791975716901
+# Initialize Flask app
+app = Flask(__name__)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# Hardcoded paths and parameters
+MODEL_PATH = './best_model.pth'
+INPUT_SIZE = 8
+EMBED_DIM = 32
+NUM_HEADS = 2
+NUM_LAYERS = 3
+DIM_FEEDFORWARD = 64
+DROPOUT = 0.1561791975716901
 
-    model = load_model(
-        model_path=model_path,
-        input_size=input_size,
-        embed_dim=embed_dim,
-        num_heads=num_heads,
-        num_layers=num_layers,
-        dim_feedforward=dim_feedforward,
-        dropout=dropout,
-        device=device
-    )
-    data_loader = preprocess_data(data_path)
-    probabilities = predict(model, data_loader, device)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = load_model(
+    model_path=MODEL_PATH,
+    input_size=INPUT_SIZE,
+    embed_dim=EMBED_DIM,
+    num_heads=NUM_HEADS,
+    num_layers=NUM_LAYERS,
+    dim_feedforward=DIM_FEEDFORWARD,
+    dropout=DROPOUT,
+    device=device
+)
 
-    cheating_prob = prediction2result(probabilities)
-    print(f"Probability of Cheating: {cheating_prob:.4f}")
+@app.route('/predict', methods=['POST'])
+def predict_api():
+    data = request.json
+    if not data or 'data' not in data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    try:
+        data_array = np.array(data['data'], dtype=np.float32)
+        if len(data_array.shape) == 2:
+            data_array = data_array[None, :, :]  # Add batch dimension if missing
+        elif len(data_array.shape) != 3 or data_array.shape[2] != 8:
+            raise ValueError("Data shape must be (batch_size, seq_len, 8)")
+
+        data_loader = preprocess_data(data_array)
+        probabilities = predict(model, data_loader, device)
+        cheating_prob = prediction2result(probabilities)
+        return jsonify({'probability_of_cheating': round(cheating_prob, 4)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
