@@ -10,9 +10,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score, recall_score, precision_score, f1_score, roc_curve, auc
 import matplotlib.pyplot as plt
 import optuna
+import joblib
 import math
-#0为datasetA;1为datasetB
 
+# Dataset class
 class TimeSeriesDataset(Dataset):
     def __init__(self, csv_file, sequence_length, label):
         self.data = pd.read_csv(csv_file)
@@ -20,7 +21,7 @@ class TimeSeriesDataset(Dataset):
         self.label = label
 
         num_columns = self.data.shape[1]
-        expected_columns = 8  # Updated to match new input dimensions
+        expected_columns = 8
 
         if num_columns != expected_columns:
             raise ValueError(f"CSV file {csv_file} has {num_columns} columns. Expected {expected_columns} columns.")
@@ -30,6 +31,10 @@ class TimeSeriesDataset(Dataset):
         # Fit StandardScaler on data
         self.scaler = StandardScaler()
         self.data.iloc[:, :] = self.scaler.fit_transform(self.data)
+
+        # Save the scaler if it's the first dataset being processed
+        if not os.path.exists('scaler.pkl'):
+            joblib.dump(self.scaler, 'scaler.pkl')
 
     def __len__(self):
         return len(self.data) - self.sequence_length
@@ -43,7 +48,7 @@ class TimeSeriesDataset(Dataset):
 
         return torch.tensor(sequence), target
 
-
+# Positional Encoding class
 class PositionalEncoding(nn.Module):
     def __init__(self, embed_dim, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -57,7 +62,7 @@ class PositionalEncoding(nn.Module):
     def forward(self, x):
         return x + self.encoding[:, :x.size(1)].detach()
 
-
+# Transformer model class
 class TimeSeriesTransformer(nn.Module):
     def __init__(self, input_size, embed_dim, num_heads, num_layers, dim_feedforward, dropout):
         super(TimeSeriesTransformer, self).__init__()
@@ -84,7 +89,7 @@ class TimeSeriesTransformer(nn.Module):
         output = self.fc(output)
         return output
 
-
+# Optuna objective function
 def objective(trial, train_loader, val_loader, device):
     embed_dim = trial.suggest_categorical('embed_dim', [32, 64, 128])
     num_heads = trial.suggest_categorical('num_heads', [2, 4, 8])
@@ -95,7 +100,7 @@ def objective(trial, train_loader, val_loader, device):
     weight_decay = trial.suggest_float('weight_decay', 1e-6, 1e-3, log=True)
 
     model = TimeSeriesTransformer(input_size=8, embed_dim=embed_dim, num_heads=num_heads, num_layers=num_layers,
-                                  dim_feedforward=dim_feedforward, dropout=dropout).to(device)  # Updated input_size
+                                  dim_feedforward=dim_feedforward, dropout=dropout).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -148,11 +153,11 @@ def objective(trial, train_loader, val_loader, device):
 
     return epoch_val_loss
 
-
+# Train the final model
 def train_final_model(train_loader, val_loader, best_params, device):
     model = TimeSeriesTransformer(input_size=8, embed_dim=best_params['embed_dim'], num_heads=best_params['num_heads'],
                                   num_layers=best_params['num_layers'], dim_feedforward=best_params['dim_feedforward'],
-                                  dropout=best_params['dropout']).to(device)  # Updated input_size
+                                  dropout=best_params['dropout']).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=best_params['lr'], weight_decay=best_params['weight_decay'])
 
@@ -166,14 +171,14 @@ def train_final_model(train_loader, val_loader, best_params, device):
             loss = criterion(output, target)
             loss.backward()
             optimizer.step()
-        print("Epoch " + str(epoch) + " finished.")
+        print(f"Epoch {epoch} finished.")
 
     torch.save(model.state_dict(), 'best_model.pth')
     print("Final model trained and saved.")
 
     return model
 
-
+# Evaluate the model
 def evaluate_model(model, test_loader, device):
     model.eval()
     y_true = []
@@ -216,9 +221,9 @@ def evaluate_model(model, test_loader, device):
     plt.title('Receiver Operating Characteristic')
     plt.legend(loc="lower right")
     plt.show()
-    plt.close()  # Close plot to avoid blocking
+    plt.close()
 
-
+# Main function
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -233,8 +238,9 @@ def main():
 
     train_files, val_files = train_test_split(all_files, test_size=0.2, random_state=42)
 
-    sequence_length = 10  # Define the sequence length for time series
+    sequence_length = 10
 
+    # Create training datasets and loaders
     train_datasets = [TimeSeriesDataset(file, sequence_length, label) for file, label in train_files]
     val_datasets = [TimeSeriesDataset(file, sequence_length, label) for file, label in val_files]
 
@@ -250,13 +256,13 @@ def main():
 
     model = train_final_model(train_loader, val_loader, best_params, device)
 
-    test_files = [file for file, _ in val_files]  # Reuse validation files for testing
+    # Reuse validation files for testing
+    test_files = [file for file, _ in val_files]
     test_dataset = torch.utils.data.ConcatDataset(
         [TimeSeriesDataset(file, sequence_length, label) for file, label in val_files])
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=False)
 
     evaluate_model(model, test_loader, device)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
