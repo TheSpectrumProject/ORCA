@@ -1,2 +1,2 @@
 # ORCA
-Advanced Minecraft anticheat based on deeplearning.
+An advanced Minecraft anticheat based on deep learning.
