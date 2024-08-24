@@ -1,9 +1,16 @@
 name: ORCA
-version: 1.0
-main: org.spectrum.ORCA
-api-version: 1.16
-description: Aadvanced minecraft anticheat solution based on deeplearning.
-author: Spectrum_Tim
+version: '1.0-SNAPSHOT'
+main: org.spectrum.orca.ORCA
+api-version: '1.18'
+prefix: "ORCA"
+author: "Spectrum_Tim"
 commands:
   orca:
-    description: Start/Stop collecting data.Example:/orca collectdata start spectrum
+    description: Controls the data collection for a player.
+    usage: /orca <collectdata> <player> <start/stop>
+    permission: orca.use
+    permission-message: You do not have permission to use this command.
+permissions:
+  orca.use:
+    description: Allows the player to use the orca command.
+    default: op
