@@ -6,9 +6,11 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
@@ -21,6 +23,7 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
     private final Map<String, DataCollector> collectors = new HashMap<>();
     private final Map<String, List<Integer>> attackTicks = new HashMap<>();
     private final Map<String, Boolean> isAttacking = new HashMap<>();
+    private final Map<String, Boolean> isClicking = new HashMap<>();
     private int tickCounter = 0;
 
     @Override
@@ -73,12 +76,14 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
         collectors.put(playerName, new DataCollector(playerName));
         attackTicks.put(playerName, new ArrayList<>());
         isAttacking.put(playerName, false);
+        isClicking.put(playerName, false);
     }
 
     private void stopCollectingData(String playerName) {
         DataCollector collector = collectors.remove(playerName);
         attackTicks.remove(playerName);
         isAttacking.remove(playerName);
+        isClicking.remove(playerName);
         if (collector != null) {
             collector.saveData();
         }
@@ -90,7 +95,8 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
             String playerName = entry.getKey();
             DataCollector collector = entry.getValue();
             boolean attacking = isAttacking.getOrDefault(playerName, false);
-            collector.collectData(tickCounter, attacking);
+            boolean clicking = isClicking.getOrDefault(playerName, false);
+            collector.collectData(tickCounter, attacking, clicking);
 
             List<Integer> ticks = attackTicks.get(playerName);
             if (ticks != null) {
@@ -102,8 +108,9 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
                     }
                 }
             }
-            // 重置攻击状态
+            // 重置攻击和点击状态
             isAttacking.put(playerName, false);
+            isClicking.put(playerName, false);
         }
     }
 
@@ -123,11 +130,20 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
     }
 
     @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        if (event.getAction() == Action.LEFT_CLICK_AIR || event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            isClicking.put(player.getName(), true);
+        }
+    }
+
+    @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         String playerName = event.getPlayer().getName();
         DataCollector collector = collectors.remove(playerName);
         attackTicks.remove(playerName);
         isAttacking.remove(playerName);
+        isClicking.remove(playerName);
         if (collector != null) {
             collector.saveData();
         }
@@ -150,13 +166,13 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
             this.dataFile = new File(getDataFolder(), "data-" + startTime + ".csv");
             try {
                 writer = new BufferedWriter(new FileWriter(dataFile));
-                writer.write("Tick,Time,PlayerPitch,PlayerYaw,NearestPlayerPitch,NearestPlayerYaw,SpeedToXAxis,SpeedToHorizontal,SpeedMagnitude,IsAttacking\n");
+                writer.write("Tick,Time,PlayerPitch,PlayerYaw,NearestPlayerPitch,NearestPlayerYaw,SpeedToXAxis,SpeedToHorizontal,SpeedMagnitude,IsAttacking,IsClicking\n");
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
 
-        public void collectData(int tickCounter, boolean isAttacking) {
+        public void collectData(int tickCounter, boolean isAttacking, boolean isClicking) {
             Player player = Bukkit.getPlayer(playerName);
             if (player == null) return;
 
@@ -203,9 +219,9 @@ public class ORCA extends JavaPlugin implements CommandExecutor, Listener {
             lastTime = currentTime;
 
             try {
-                writer.write(String.format("%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%b\n",
+                writer.write(String.format("%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%b,%b\n",
                         tickCounter, currentTime - startTime, playerDirectionPitch, playerDirectionYaw, nearestPlayerPitch, nearestPlayerYaw,
-                        speedToXAxis, speedToHorizontal, speedMagnitude, isAttacking));
+                        speedToXAxis, speedToHorizontal, speedMagnitude, isAttacking, isClicking));
             } catch (IOException e) {
                 e.printStackTrace();
             }
