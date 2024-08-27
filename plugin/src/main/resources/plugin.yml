@@ -1,0 +1,68 @@
+name: ORCA
+version: '1.0-SNAPSHOT'
+api-version: '1.18'
+prefix: ORCA
+author: Spectrum_Tim
+main: ac.grim.grimac.GrimAC
+description: Libre simulation anticheat designed for 1.21 with 1.18-1.21 support, powered by PacketEvents 2.0.
+softdepend:
+  - ProtocolLib
+  - ProtocolSupport
+  - Essentials
+  - ViaVersion
+  - ViaBackwards
+  - ViaRewind
+  - Geyser-Spigot
+  - floodgate
+  - FastLogin
+
+permissions:
+  orca.alerts:
+    description: Receive alerts for violations
+    default: op
+  grim.alerts.enable-on-join:
+    description: Enable alerts on join
+    default: op
+  orca.performance:
+    description: Check performance metrics
+    default: op
+  orca.profile:
+    description: Check user profile
+    default: op
+  grim.brand:
+    description: Show client brands on join
+    default: op
+  orca.sendalert:
+    description: Send cheater alert
+    default: op
+  grim.nosetback:
+    description: Disable setback
+    default: false
+  grim.nomodifypacket:
+    description: Disable modifying packets
+    default: false
+  grim.exempt:
+    description: Exempt from all checks
+    default: false
+  #START
+  orca.dl:
+    description: Deep Learning Controller.
+    default: op
+  orca.punish:
+    description: Punish a player.
+    default: op
+  #END
+commands:
+  orca:
+    description: Main Command.
+    aliases:
+      - spectrumac
+      - orcac
+  orca-dl:
+    description: Deep Learning Controller.
+    usage: /orca-dl collectdata [PlayerName] [Start/Stop]
+    permission: orca.dl
+  orca-punish:
+    description: Punish a player.
+    usage: /orca-punish [Ban/Kick/TempBan] [PlayerName] [REASON] [Duration (optional for TempBan)]
+    permission: orca.punish
