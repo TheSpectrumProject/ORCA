@@ -1,0 +1,12 @@
+name: ORCA
+version: '${project.version}'
+main: org.spectrum.orca.ORCA
+api-version: '1.8'
+commands:
+  orca:
+    description: ORCA Main Command
+    usage: /orca
+permissions:
+  orca.notify:
+    description: Receive AntiCheat Notifications
+    default: op

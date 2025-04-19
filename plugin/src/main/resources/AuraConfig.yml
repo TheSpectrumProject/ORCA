@@ -1,0 +1,10 @@
+#DeepLearning Aura Check Config File
+
+#API Config
+api_endpoint: "http://127.0.0.1:5000/predict"
+api_key: "123456"
+
+#Punish Config
+
+
+#Record Config
