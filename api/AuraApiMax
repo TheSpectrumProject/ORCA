@@ -1,0 +1,46 @@
+from flask import Flask, request, jsonify
+import numpy as np
+import tensorflow as tf
+
+# Initialize Flask app
+app = Flask(__name__)
+
+# Load your pre-trained TensorFlow model
+model = tf.keras.models.load_model('ten2.keras')
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        print(request)
+        # Parse JSON request data
+        data = request.get_json()
+
+        # Check if 'time_series' exists in JSON
+        if 'time_series' not in data:
+            return jsonify({'error': 'Missing "time_series" key in JSON'}), 400
+
+        # Convert comma-separated string to list of floats
+        time_series = data['time_series']
+        time_series = list(map(float, time_series.split(',')))
+
+        # Check if we have exactly 280 values
+        if len(time_series) != 280:
+            return jsonify({'error': 'The time series must contain exactly 280 values'}), 400
+
+        # Reshape and expand
+        time_series = np.array(time_series).reshape(40, 7)
+        time_series = np.expand_dims(time_series, axis=0)
+
+        # Make prediction
+        prediction = model.predict(time_series)
+
+        # Return probability for class 1
+        return jsonify({'cheat_probability': float(prediction)})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
