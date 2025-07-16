@@ -17,4 +17,12 @@ An advanced Minecraft anticheat based on deep learning.
 好吧既然啊你问了那就瞎编一些：
 好的兼容性，理论上不和任何反作弊打架
 100%开源 无门
-也算是AiCheck了，至少有检测
+也算是免费AiCheck了，至少有检测
+全版本支持（或许？低版本建议tatako也免费效果不错）
+
+接下来干什么？
+1.完善Aura
+//一年以后
+2.+Backtrack+Fakelag
+3.+Scaffold
+4.+移动
