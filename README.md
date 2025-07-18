@@ -26,3 +26,13 @@ An advanced Minecraft anticheat based on deep learning.
 2.+Backtrack+Fakelag
 3.+Scaffold
 4.+移动
+
+
+
+
+
+
+
+
+
+干净数据集开源地址：https://www.kaggle.com/datasets/timwang123/1111111
